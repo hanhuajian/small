@@ -15,8 +15,8 @@ jobs:
       matrix:
         sdk:
           - 23.05.2
-          - SNAPSHOT
-          - main
+          - openwrt-SNAPSHOT
+          - openwrt-21.02
         arch:
           - arm_cortex-a5_vfpv4
           - x86_64

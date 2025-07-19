@@ -15,6 +15,7 @@ jobs:
       matrix:
         sdk:
           - 23.05.2
+          - SNAPSHOT
         arch:
           - aarch64_cortex-a53
           - x86_64
@@ -37,7 +38,7 @@ jobs:
         uses: actions/upload-artifact@main
         with:
           name: ${{ matrix.arch }}-${{ matrix.sdk }}
-          path: bin/packages/${{ matrix.arch }}/packages_ci/*.ipk
+          path: bin/packages/${{ matrix.arch }}/packages_ci/*.[ia]pk
 
       - name: Zip packages
         run: |
@@ -52,7 +53,7 @@ jobs:
         uses: ncipollo/release-action@main
         with:
           token: ${{ secrets.ACCESS_TOKEN }}
-          artifacts: "${{ matrix.arch }}-${{ matrix.sdk }}.zip,bin/packages/${{ matrix.arch }}/packages_ci/*.ipk"
+          artifacts: "${{ matrix.arch }}-${{ matrix.sdk }}.zip,bin/packages/${{ matrix.arch }}/packages_ci/*.[ia]pk"
           allowUpdates: true
           replacesArtifacts: true
           bodyFile: "release.txt"

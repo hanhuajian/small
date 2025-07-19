@@ -1,74 +1,83 @@
-name: T2 Build
+name: Build-OpenWrt-VNT
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - v.**
-
+    inputs:
+      tag:
+        description: '请填写发布Releases的版本号（留空不发布）'
+        required: false
+        default: ''
+      text:
+        description: '请填写发布的说明'
+        required: false
+        default: ''
+env:
+  TAG: "${{ github.event.inputs.tag }}"
+  TZ: Asia/Shanghai
+permissions:
+  contents: write
 jobs:
   build:
-    name: build ${{ matrix.arch }}
+    name: Build ${{ matrix.arch }}-${{ matrix.sdk }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        sdk:
-          - openwrt-24.10
-          - SNAPSHOT
         arch:
           - arm_cortex-a5_vfpv4
           - x86_64
+        sdk:
+          - openwrt-22.03
+          - SNAPSHOT
 
     steps:
       - uses: actions/checkout@main
         with:
           fetch-depth: 0
 
-      - name: Build
+      - name: Building packages
         uses: sbwml/openwrt-gh-action-sdk@main
         env:
           ARCH: ${{ matrix.arch }}-${{ matrix.sdk }}
           FEEDNAME: packages_ci
           PACKAGES: luci-app-fchomo luci-app-homeproxy luci-app-nikki luci-app-openclash luci-app-passwall luci-app-passwall2 luci-app-ssr-plus luci-app-bypass brook hysteria ipt2socks pdnsd-alt redsocks2 shadow-tls trojan tuic-client xray-plugin v2ray-core v2ray-geodata naiveproxy sing-box
           NO_REFRESH_CHECK: true
-          IGNORE_ERRORS: true
+          V: s
 
-      - name: Store packages
-        uses: actions/upload-artifact@main
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.arch }}-${{ matrix.sdk }}
-          path: bin/packages/${{ matrix.arch }}/packages_ci/*.[ia]pk
+          name: VNT-${{ matrix.arch }}-${{ matrix.sdk }}
+          path: bin/packages/${{ matrix.arch }}/packages_ci/
 
-      - name: Zip packages
+      - name: Create compress files
         run: |
-          zip -j ${{ matrix.arch }}-${{ matrix.sdk }}.zip bin/packages/${{ matrix.arch }}/packages_ci/*.ipk
-          echo -e "**文件说明** 🎈:\n" >> release.txt
-          echo -e "1. 默认ssr与passwall的插件与依赖整合包\n" >> release.txt
-          echo -e "2. 使用方法：将整合包上传到openwrt设备的tmp目录，输入命令 \`opkg install *.ipk\`\n" >> release.txt
-          echo -e "3. 默认压缩包里包含ssr passwall bypass passwall2 插件\n" >> release.txt
-          echo -e "4. 如果单独安装ssr与依赖，\`rm -rf {*passwall*,*bypass*,*homeproxy*}\`\n" >> release.txt
+          #tar -zcvf vnt-${{ matrix.sdk }}-${{ matrix.arch }}.tar.gz -C bin/packages/${{ matrix.arch }}/ packages_ci
+          zip -j vnt-${{ matrix.arch }}-${{ matrix.sdk }}.zip bin/packages/${{ matrix.arch }}/packages_ci/*
+          echo "build_time=$(date '+%Y年%m月%d日%H:%M:%S' | jq -sRr @uri)" >> $GITHUB_ENV
           
-      - name: Upload packages
-        uses: ncipollo/release-action@main
+      - name: Release
+        if: ${{ github.event.inputs.tag != '' }}
+        uses: softprops/action-gh-release@v2
         with:
-          token: ${{ secrets.ACCESS_TOKEN }}
-          artifacts: "${{ matrix.arch }}-${{ matrix.sdk }}.zip,bin/packages/${{ matrix.arch }}/packages_ci/*.[ia]pk"
-          allowUpdates: true
-          replacesArtifacts: true
-          bodyFile: "release.txt"
-          tag: ${{ github.run_number }}-${{ matrix.arch }}
+            token: ${{ secrets.GITHUB_TOKEN }}
+            body: |
+             > ### ![](https://img.shields.io/badge/%E7%BC%96%E8%AF%91%E6%97%B6%E9%97%B4-${{ env.build_time }}-8267?logo=github&labelColor=%E9%A1%BB)![](https://img.shields.io/github/downloads/${{ github.repository }}/${{ env.TAG }}/total?label=%E4%B8%8B%E8%BD%BD%E6%AC%A1%E6%95%B0&logo=github) 
 
-      - name: Delete workflow runs
-        uses: Mattraks/delete-workflow-runs@main
-        with:
-          retain_days: 10
-          keep_minimum_runs: 2
-    
-      - name: Remove old Releases
-        uses: dev-drprasad/delete-older-releases@master
-        with:
-          keep_latest: 60
-          delete_tags: true
-        env:
-           GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+             - 其中 **`openwrt-22.03`** 里面是ipk安装包 **`SNAPSHOT`** 里面是apk安装包
+             
+             - 需要先去系统自带的软件包里已经安装 _**luci**_ 和 _**luci-base**_ 和 _**luci-compat**_ 和 _**kmod-tun**_ 再安装这个ipk或apk才能显示界面
+
+             - 安装完成后找不到界面入口的，请注销登录关闭当前浏览器窗口重新打开或重启路由器
+             
+             - 如果 状态-系统日志里 出现下图日志内容可以使用以下命令解决
+             ![image](https://github.com/lmq8267/luci-app-vnt/assets/119713693/5094717e-a301-4411-9450-c8b64d4a3ade)
+             `sed -i 's/util/xml/g' /usr/lib/lua/luci/model/cbi/vnt.lua`
+
+             - **`*.apk` 是OpenWrt新版的APK包** 对于apk包跳过证书命令
+             `apk add --allow-untrusted luci-app-vnt.apk`
+
+             ${{ github.event.inputs.text }}
+
+            tag_name: ${{ env.TAG }}
+            files: vnt-${{ matrix.arch }}-${{ matrix.sdk }}.zip

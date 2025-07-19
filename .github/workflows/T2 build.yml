@@ -8,15 +8,14 @@ on:
 
 jobs:
   build:
-    name: build ${{ matrix.arch }}-${{ matrix.sdk }}
+    name: build ${{ matrix.arch }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         sdk:
-          - 23.05.2
+          - openwrt-24.10
           - SNAPSHOT
-          - 25.04
         arch:
           - arm_cortex-a5_vfpv4
           - x86_64
@@ -27,7 +26,7 @@ jobs:
           fetch-depth: 0
 
       - name: Build
-        uses: kenzok8/gh-action-sdk@hash
+        uses: sbwml/openwrt-gh-action-sdk@main
         env:
           ARCH: ${{ matrix.arch }}-${{ matrix.sdk }}
           FEEDNAME: packages_ci

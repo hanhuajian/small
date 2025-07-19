@@ -26,8 +26,8 @@ jobs:
         arch:
           - x86_64
         sdk:
-          - openwrt-24.10
-          - openwrt-25.04
+          - main
+          - openwrt-22.03
 
     steps:
       - uses: actions/checkout@main
